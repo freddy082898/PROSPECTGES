@@ -1,16 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getSession } from '@/lib/auth';
 import { fmt, STATUS, scoreColor } from '@/lib/utils';
 import { Users, Mail, TrendingUp, DollarSign, ArrowUpRight } from 'lucide-react';
-
-type StatusRow = { status: string; count: string };
-type RecentRow = { first_name: string; last_name: string; company: string; score: number; status: string; created_at: string };
 
 async function getDashboardData(userId: string) {
   try {
     const sql = (await import('@/lib/db')).default;
     const { initDB } = await import('@/lib/db');
     await initDB();
-
     const [prospects, campaigns, deals, byStatus, recent] = await Promise.all([
       sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE created_at >= date_trunc('month', NOW())) as this_month, ROUND(AVG(score)) as avg_score FROM prospects WHERE user_id = ${userId}`,
       sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status = 'RUNNING') as running FROM campaigns WHERE user_id = ${userId}`,
@@ -18,14 +15,7 @@ async function getDashboardData(userId: string) {
       sql`SELECT status, COUNT(*) as count FROM prospects WHERE user_id = ${userId} GROUP BY status`,
       sql`SELECT first_name, last_name, company, score, status, created_at FROM prospects WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 5`,
     ]);
-
-    return {
-      prospects: prospects[0] as Record<string, string>,
-      campaigns: campaigns[0] as Record<string, string>,
-      deals: deals[0] as Record<string, string>,
-      byStatus: byStatus as StatusRow[],
-      recent: recent as RecentRow[],
-    };
+    return { prospects: prospects[0] as any, campaigns: campaigns[0] as any, deals: deals[0] as any, byStatus: byStatus as any[], recent: recent as any[] };
   } catch {
     return null;
   }
@@ -56,6 +46,9 @@ export default async function DashboardPage() {
     return 'Bonsoir';
   };
 
+  const byStatusList: Array<{ status: string; count: string }> = data?.byStatus ?? [];
+  const recentList: Array<{ first_name: string; last_name: string; company: string; score: number }> = data?.recent ?? [];
+
   return (
     <div className="space-y-6">
       <div>
@@ -85,7 +78,7 @@ export default async function DashboardPage() {
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5">
           <h3 className="font-semibold text-slate-900 mb-4">Prospects par statut</h3>
           <div className="space-y-2.5">
-            {(data?.byStatus ?? []).map((s: StatusRow) => {
+            {byStatusList.map((s) => {
               const total = Number(data?.prospects?.total ?? 1);
               const pct = Math.round((Number(s.count) / total) * 100);
               const cfg = STATUS[s.status] ?? { label: s.status, color: 'bg-slate-100 text-slate-600' };
@@ -101,7 +94,7 @@ export default async function DashboardPage() {
                 </div>
               );
             })}
-            {(data?.byStatus ?? []).length === 0 && (
+            {byStatusList.length === 0 && (
               <p className="text-slate-400 text-sm text-center py-6">Aucun prospect encore</p>
             )}
           </div>
@@ -115,7 +108,7 @@ export default async function DashboardPage() {
             </a>
           </div>
           <div className="space-y-3">
-            {(data?.recent ?? []).map((p: RecentRow, i: number) => (
+            {recentList.map((p, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
                   {p.first_name[0]}{p.last_name[0]}
@@ -127,7 +120,7 @@ export default async function DashboardPage() {
                 <span className={`text-xs font-bold px-2 py-1 rounded-lg ring-1 ${scoreColor(p.score)}`}>{p.score}</span>
               </div>
             ))}
-            {(data?.recent ?? []).length === 0 && (
+            {recentList.length === 0 && (
               <p className="text-slate-400 text-sm text-center py-6">Aucun prospect encore</p>
             )}
           </div>
